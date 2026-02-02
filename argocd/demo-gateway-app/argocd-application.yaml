@@ -55,39 +55,29 @@ spec:
   
   # Ignore differences for fields managed by Gateway controllers
   ignoreDifferences:
-    # HTTPRoute - Ignore controller-added fields in parentRefs
+    # HTTPRoute - Ignore all controller-added metadata in parentRefs and backendRefs
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      jsonPointers:
-        - /spec/parentRefs/*/kind
-        - /spec/parentRefs/*/group
-        - /spec/parentRefs/*/namespace
-        - /spec/parentRefs/*/sectionName
+      jqPathExpressions:
+        - '.spec.parentRefs[]?.kind'
+        - '.spec.parentRefs[]?.group'
+        - '.spec.parentRefs[]?.namespace'
+        - '.spec.parentRefs[]?.sectionName'
+        - '.spec.rules[]?.backendRefs[]?.kind'
+        - '.spec.rules[]?.backendRefs[]?.group'
+        - '.spec.rules[]?.backendRefs[]?.namespace'
+        - '.spec.tls[]?.certificateRefs[]?.kind'
+        - '.spec.tls[]?.certificateRefs[]?.group'
     
-    # HTTPRoute - Ignore controller-added fields in backendRefs  
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      jsonPointers:
-        - /spec/rules/*/backendRefs/*/kind
-        - /spec/rules/*/backendRefs/*/group
-        - /spec/rules/*/backendRefs/*/namespace
-    
-    # HTTPRoute - Ignore TLS certificateRefs fields
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      jsonPointers:
-        - /spec/tls/*/certificateRefs/*/kind
-        - /spec/tls/*/certificateRefs/*/group
-    
-    # Certificate - Ignore cert-manager fields
+    # Certificate - Ignore all cert-manager added fields
     - group: cert-manager.io
       kind: Certificate
-      jsonPointers:
-        - /spec/secretTemplate
-        - /spec/privateKey
+      jqPathExpressions:
+        - '.spec.secretTemplate'
+        - '.spec.privateKey'
     
     # Gateway - Ignore status
     - group: gateway.networking.k8s.io
       kind: Gateway
-      jsonPointers:
-        - /status
+      jqPathExpressions:
+        - '.status'
