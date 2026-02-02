@@ -99,7 +99,7 @@ applications:
     replicaCount: 1
     image:
       repository: arthaweb
-      tag: v1.0.1
+      tag: v1.0.2
     containerPort: 5010
     resources:
       limits:
