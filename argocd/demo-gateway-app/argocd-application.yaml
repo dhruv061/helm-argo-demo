@@ -52,22 +52,36 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
-  
   # Ignore differences for fields managed by Gateway controllers
   ignoreDifferences:
-    # HTTPRoute - Ignore all controller-added metadata in parentRefs and backendRefs
+    # HTTPRoute - Ignore all controller-added metadata
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       jqPathExpressions:
         - '.spec.parentRefs[]?.kind'
         - '.spec.parentRefs[]?.group'
+        - '.spec.parentRefs[]?.name'
         - '.spec.parentRefs[]?.namespace'
         - '.spec.parentRefs[]?.sectionName'
         - '.spec.rules[]?.backendRefs[]?.kind'
         - '.spec.rules[]?.backendRefs[]?.group'
+        - '.spec.rules[]?.backendRefs[]?.name'
         - '.spec.rules[]?.backendRefs[]?.namespace'
+        - '.spec.rules[]?.backendRefs[]?.weight'
         - '.spec.tls[]?.certificateRefs[]?.kind'
         - '.spec.tls[]?.certificateRefs[]?.group'
+        - '.spec.tls[]?.certificateRefs[]?.name'
+        - '.spec.tls[]?.certificateRefs[]?.namespace'
+    
+    # Gateway - Ignore certificateRefs and status
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      jqPathExpressions:
+        - '.spec.listeners[]?.tls.certificateRefs[]?.kind'
+        - '.spec.listeners[]?.tls.certificateRefs[]?.group'
+        - '.spec.listeners[]?.tls.certificateRefs[]?.name'
+        - '.spec.listeners[]?.tls.certificateRefs[]?.namespace'
+        - '.status'
     
     # Certificate - Ignore all cert-manager added fields
     - group: cert-manager.io
@@ -75,9 +89,3 @@ spec:
       jqPathExpressions:
         - '.spec.secretTemplate'
         - '.spec.privateKey'
-    
-    # Gateway - Ignore status
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      jqPathExpressions:
-        - '.status'
