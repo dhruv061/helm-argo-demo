@@ -30,15 +30,15 @@ primaryDomain:
 
   frontend:
     service: frontend-service
-    port: 5010
+    port: 80  # Service port, not container port
 
   admin:
     service: admin-service
-    port: 5011
+    port: 80  # Service port, not container port
 
   api:
     service: backend-service
-    port: 5012
+    port: 80  # Service port, not container port
 
 # Client Domains
 domains:
@@ -48,10 +48,10 @@ domains:
     canonicalHost: www          #values: www | apex -> For more detail use README.md
     frontend:
       service: frontend-service
-      port: 5010
+      port: 80  # Service port, not container port
     admin:
       service: admin-service
-      port: 5011
+      port: 80  # Service port, not container port
 
   # - domain: aks-test.arthajobboard.com
   #   dnsReady: true
