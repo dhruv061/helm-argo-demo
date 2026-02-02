@@ -68,6 +68,7 @@ spec:
         - '.spec.rules[]?.backendRefs[]?.name'
         - '.spec.rules[]?.backendRefs[]?.namespace'
         - '.spec.rules[]?.backendRefs[]?.weight'
+        - '.spec.rules[]?.matches'  # Gateway controller adds default matches
         - '.spec.tls[]?.certificateRefs[]?.kind'
         - '.spec.tls[]?.certificateRefs[]?.group'
         - '.spec.tls[]?.certificateRefs[]?.name'
