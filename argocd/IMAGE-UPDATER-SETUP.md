@@ -16,7 +16,7 @@
 
 ```bash
 # Install via kubectl
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/config/install.yaml
 
 # Verify installation
 kubectl get pods -n argocd | grep image-updater

@@ -1,51 +1,42 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: demo-helm-app
+  name: demo-artha-app
   namespace: argocd
   annotations:
-    # ============================================================================
-    # ArgoCD Image Updater Configuration (Optional)
-    # ============================================================================
-    # Uncomment below to enable automatic image tag updates from ACR
-    # See IMAGE-UPDATER-SETUP.md for complete setup instructions
-    # ============================================================================
+    # Enable image updater
+    argocd-image-updater.argoproj.io/image-list: |
+      backend=helmtest.azurecr.io/arthanode,
+      frontend=helmtest.azurecr.io/arthaweb,
+      admin=helmtest.azurecr.io/arthaadmin
+
+    # Update strategy: semver for version tags (v1.0.0), or latest for latest tag
+    argocd-image-updater.argoproj.io/backend.update-strategy: latest
+    argocd-image-updater.argoproj.io/frontend.update-strategy: latest
+    argocd-image-updater.argoproj.io/admin.update-strategy: latest
     
-    # Track images from ACR
-    # argocd-image-updater.argoproj.io/image-list: |
-    #   backend=helmtest.azurecr.io/arthanode,
-    #   frontend=helmtest.azurecr.io/arthaweb,
-    #   admin=helmtest.azurecr.io/arthaadmin
-    
-    # Update strategy: latest (for latest tag) or semver (for v1.0.0 style tags)
-    # argocd-image-updater.argoproj.io/backend.update-strategy: semver
-    # argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^v[0-9]+\.[0-9]+\.[0-9]+$
-    # argocd-image-updater.argoproj.io/frontend.update-strategy: semver
-    # argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^v[0-9]+\.[0-9]+\.[0-9]+$
-    # argocd-image-updater.argoproj.io/admin.update-strategy: semver
-    # argocd-image-updater.argoproj.io/admin.allow-tags: regexp:^v[0-9]+\.[0-9]+\.[0-9]+$
-    
-    # Helm value paths
-    # argocd-image-updater.argoproj.io/backend.helm.image-tag: applications.backend.image.tag
-    # argocd-image-updater.argoproj.io/frontend.helm.image-tag: applications.frontend.image.tag
-    # argocd-image-updater.argoproj.io/admin.helm.image-tag: applications.admin.image.tag
-    
-    # ACR credentials (create secret: kubectl create secret docker-registry acr-credentials ...)
-    # argocd-image-updater.argoproj.io/backend.pull-secret: secret:argocd/acr-credentials
-    # argocd-image-updater.argoproj.io/frontend.pull-secret: secret:argocd/acr-credentials
-    # argocd-image-updater.argoproj.io/admin.pull-secret: secret:argocd/acr-credentials
-    
+    # Helm value paths to update
+    argocd-image-updater.argoproj.io/backend.helm.image-tag: applications.backend.image.tag
+    argocd-image-updater.argoproj.io/frontend.helm.image-tag: applications.frontend.image.tag
+    argocd-image-updater.argoproj.io/admin.helm.image-tag: applications.admin.image.tag
+
+    # ACR credentials (must create secret: kubectl create secret docker-registry acr-credentials ...)
+    argocd-image-updater.argoproj.io/backend.pull-secret: secret:argocd/acr-credentials
+    argocd-image-updater.argoproj.io/frontend.pull-secret: secret:argocd/acr-credentials
+    argocd-image-updater.argoproj.io/admin.pull-secret: secret:argocd/acr-credentials
+
     # Write back to Git - Updates application-values.yaml directly
-    # argocd-image-updater.argoproj.io/write-back-method: git
-    # argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
-    # argocd-image-updater.argoproj.io/git-branch: master
-  
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
+    argocd-image-updater.argoproj.io/git-branch: master
+
+  # Ensures all Kubernetes resources managed by this Argo CD Application
+  # are deleted before the Application itself is removed (prevents orphaned resources)
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   # Project name
   project: default
-  
   # Source repository configuration
   source:
     # Git repository URL
@@ -57,28 +48,17 @@ spec:
     helm:
       # Values files to use (in order of precedence)
       valueFiles:
-        - application-values.yaml  # Application config (image tags updated here)
-        - gateway-values.yaml      # Gateway API config
+        - application-values.yaml
+        - gateway-values.yaml
+      releaseName: demo-helm-app       # Release name for Helm
       
-      # Release name for Helm
-      releaseName: demo-helm-app
-      
-      # Skip CRDs if they're already installed
-      # skipCrds: true
-  
   # Destination cluster and namespace
   destination:
-    # Use 'https://kubernetes.default.svc' for in-cluster
     server: https://kubernetes.default.svc
     namespace: default
   
   # Sync policy configuration - MANUAL SYNC
-  syncPolicy:
-    # Manual sync - requires explicit sync trigger via UI or CLI
-    # automated:
-    #   prune: false
-    #   selfHeal: false
-    
+  syncPolicy:    
     # Sync options
     syncOptions:
       - CreateNamespace=true  # Create namespace if it doesn't exist
