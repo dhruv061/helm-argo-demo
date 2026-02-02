@@ -1,0 +1,12 @@
+{{- if and .Values.applications.frontend.enabled .Values.applications.frontend.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  minAvailable: {{ .Values.applications.frontend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: frontend
+{{- end }}

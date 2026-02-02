@@ -1,0 +1,12 @@
+{{- if and .Values.applications.backend.enabled .Values.applications.backend.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  minAvailable: {{ .Values.applications.backend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: backend
+{{- end }}

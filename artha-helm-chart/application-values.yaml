@@ -1,0 +1,168 @@
+# ============================================================================
+# Application Components Configuration
+# ============================================================================
+# This file contains all application component configurations including:
+# - Deployments (admin, backend, frontend, cron-service, email-alert-job)
+# - Services (admin, backend, frontend)
+# - Horizontal Pod Autoscalers (HPA)
+# - Pod Disruption Budgets (PDB)
+# - Image registry and version settings
+# ============================================================================
+
+applications:
+  # Image registry configuration
+  imageRegistry: helmtest.azurecr.io
+  imagePullPolicy: IfNotPresent
+  
+  # Namespace for application resources
+  namespace: default
+  
+  # Admin Panel
+  admin:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: arthaadmin
+      tag: v1.0.0
+    containerPort: 5011
+    resources:
+      limits:
+        cpu: 700m
+        memory: 512Mi
+      requests:
+        cpu: 500m
+        memory: 356Mi
+    readinessProbe:
+      enabled: true
+      tcpSocket:
+        port: 5011
+      initialDelaySeconds: 5
+      timeoutSeconds: 3
+      periodSeconds: 10
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    service:
+      name: admin-service
+      port: 80
+      targetPort: 5011
+  
+  # Backend API
+  backend:
+    enabled: true
+    replicaCount: 3
+    image:
+      repository: arthanode
+      tag: v1.0.0
+    containerPort: 5012
+    resources:
+      limits:
+        cpu: 1700m
+        memory: 4Gi
+      requests:
+        cpu: 1200m
+        memory: 3584Mi
+    readinessProbe:
+      enabled: true
+      tcpSocket:
+        port: 5012
+      initialDelaySeconds: 20
+      timeoutSeconds: 3
+      periodSeconds: 5
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 4
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            targetAverageUtilization: 75
+        - type: Resource
+          resource:
+            name: memory
+            targetAverageUtilization: 90
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+        scaleDown:
+          stabilizationWindowSeconds: 60
+    pdb:
+      enabled: true
+      minAvailable: 1
+    service:
+      name: backend-service
+      port: 80
+      targetPort: 5012
+  
+  # Frontend Web
+  frontend:
+    enabled: true
+    replicaCount: 3
+    image:
+      repository: arthaweb
+      tag: v1.0.0
+    containerPort: 5010
+    resources:
+      limits:
+        cpu: 700m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 3584Mi
+    readinessProbe:
+      enabled: true
+      tcpSocket:
+        port: 5010
+      initialDelaySeconds: 40
+      timeoutSeconds: 3
+      periodSeconds: 5
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 4
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            targetAverageUtilization: 75
+        - type: Resource
+          resource:
+            name: memory
+            targetAverageUtilization: 90
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+        scaleDown:
+          stabilizationWindowSeconds: 60
+    pdb:
+      enabled: true
+      minAvailable: 1
+    service:
+      name: frontend-service
+      port: 80
+      targetPort: 5010
+  
+  # Cron Service
+  cronService:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: arthanode
+      tag: migrated-v5.0.2
+    command:
+      - node
+      - /app/api/components/cron-service/index.js
+  
+  # Email Alert Job
+  emailAlertJob:
+    enabled: false
+    replicaCount: 1
+    image:
+      repository: arthanode
+      tag: migrated-v5.0.2
+    command:
+      - node
+      - /app/api/modules/notification/src/index.js

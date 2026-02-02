@@ -1,0 +1,34 @@
+{{- if and .Values.applications.frontend.enabled .Values.applications.frontend.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-horizontal-pod-autoscaler
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: {{ .Values.applications.frontend.hpa.minReplicas }}
+  maxReplicas: {{ .Values.applications.frontend.hpa.maxReplicas }}
+  metrics:
+    {{- range .Values.applications.frontend.hpa.metrics }}
+    - type: {{ .type }}
+      resource:
+        name: {{ .resource.name }}
+        target:
+          type: Utilization
+          averageUtilization: {{ .resource.targetAverageUtilization }}
+    {{- end }}
+  {{- if .Values.applications.frontend.hpa.behavior }}
+  behavior:
+    {{- if .Values.applications.frontend.hpa.behavior.scaleUp }}
+    scaleUp:
+      stabilizationWindowSeconds: {{ .Values.applications.frontend.hpa.behavior.scaleUp.stabilizationWindowSeconds }}
+    {{- end }}
+    {{- if .Values.applications.frontend.hpa.behavior.scaleDown }}
+    scaleDown:
+      stabilizationWindowSeconds: {{ .Values.applications.frontend.hpa.behavior.scaleDown.stabilizationWindowSeconds }}
+    {{- end }}
+  {{- end }}
+{{- end }}

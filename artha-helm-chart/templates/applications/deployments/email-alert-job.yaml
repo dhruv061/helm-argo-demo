@@ -1,0 +1,23 @@
+{{- if .Values.applications.emailAlertJob.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email-alert-job
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.applications.emailAlertJob.replicaCount }}
+  selector:
+    matchLabels:
+      app: email-alert-job
+  template:
+    metadata:
+      labels:
+        app: email-alert-job
+    spec:
+      containers:
+      - name: email-alert-job-container
+        image: "{{ .Values.applications.imageRegistry }}/{{ .Values.applications.emailAlertJob.image.repository }}:{{ .Values.applications.emailAlertJob.image.tag }}"
+        command:
+          {{- toYaml .Values.applications.emailAlertJob.command | nindent 10 }}
+{{- end }}

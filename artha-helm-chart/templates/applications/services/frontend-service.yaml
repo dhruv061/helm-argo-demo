@@ -1,0 +1,15 @@
+{{- if .Values.applications.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.applications.frontend.service.name }}
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: {{ .Values.applications.frontend.service.port }}
+      targetPort: {{ .Values.applications.frontend.service.targetPort }}
+  selector:
+    app: frontend
+{{- end }}

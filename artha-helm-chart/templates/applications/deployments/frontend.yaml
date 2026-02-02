@@ -1,0 +1,34 @@
+{{- if .Values.applications.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.applications.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend-container
+        image: "{{ .Values.applications.imageRegistry }}/{{ .Values.applications.frontend.image.repository }}:{{ .Values.applications.frontend.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.applications.frontend.containerPort }}
+        resources:
+          {{- toYaml .Values.applications.frontend.resources | nindent 10 }}
+        {{- if .Values.applications.frontend.readinessProbe.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.applications.frontend.readinessProbe.tcpSocket.port }}
+          initialDelaySeconds: {{ .Values.applications.frontend.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.applications.frontend.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.applications.frontend.readinessProbe.timeoutSeconds }}
+          failureThreshold: 3
+        {{- end }}
+{{- end }}

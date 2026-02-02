@@ -1,0 +1,34 @@
+{{- if .Values.applications.admin.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.applications.admin.replicaCount }}
+  selector:
+    matchLabels:
+      app: admin
+  template:
+    metadata:
+      labels:
+        app: admin
+    spec:
+      containers:
+      - name: admin-container
+        image: "{{ .Values.applications.imageRegistry }}/{{ .Values.applications.admin.image.repository }}:{{ .Values.applications.admin.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.applications.admin.containerPort }}
+        resources:
+          {{- toYaml .Values.applications.admin.resources | nindent 10 }}
+        {{- if .Values.applications.admin.readinessProbe.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.applications.admin.readinessProbe.tcpSocket.port }}
+          initialDelaySeconds: {{ .Values.applications.admin.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.applications.admin.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.applications.admin.readinessProbe.timeoutSeconds }}
+          failureThreshold: 3
+        {{- end }}
+{{- end }}

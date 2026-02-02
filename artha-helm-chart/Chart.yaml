@@ -1,0 +1,6 @@
+apiVersion: v2
+name: artha
+description: Complete Artha application stack with Gateway API and application components
+type: application
+version: 0.1.0
+appVersion: "1.0"

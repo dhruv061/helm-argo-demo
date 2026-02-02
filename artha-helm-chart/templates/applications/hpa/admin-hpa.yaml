@@ -1,0 +1,21 @@
+{{- if and .Values.applications.admin.enabled .Values.applications.admin.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: admin-horizontal-pod-autoscaler
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: admin
+  minReplicas: {{ .Values.applications.admin.hpa.minReplicas }}
+  maxReplicas: {{ .Values.applications.admin.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.applications.admin.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

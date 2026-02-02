@@ -1,0 +1,65 @@
+# ============================================================================
+# Gateway API Configuration
+# ============================================================================
+# This file contains all Gateway API related configurations including:
+# - Gateway settings
+# - Primary domain (arthajobboard.com/jobsinrajkot.com)
+# - Client domains with DNS and TLS configuration
+# - HTTPRoute configurations
+# ============================================================================
+
+gateway:
+  enabled: false
+  name: nginx-gateway
+  namespace: nginx-gateway
+  className: nginx
+  issuer: letsencrypt-prod
+
+routesNamespace: default
+
+# PRIMARY application domain (HTTPRoute only)
+# Contain HTTPRoute Values for only domains --> app.arthajobboard.com, api.arthajobboard.com, *.arthajobboard.com
+primaryDomain:
+  enabled: false
+  # domain: arthajobboard.com
+  domain: jobsinrajkot.com
+  # Custom TLS certificate (not from cert-manager)
+  tls:
+    secretName: ssl-jobsinrajkot
+    secretNamespace: default  # Where your secret is stored
+
+  frontend:
+    service: frontend-service
+    port: 5010
+
+  admin:
+    service: admin-service
+    port: 5011
+
+  api:
+    service: backend-service
+    port: 5012
+
+# Client Domains
+domains:
+  - domain: dhruv.jobsinrajkot.com
+    dnsReady: false
+    certificateScope: both      #values: both | www | non-www -> For more detail use README.md
+    canonicalHost: www          #values: www | apex -> For more detail use README.md
+    frontend:
+      service: frontend-service
+      port: 5010
+    admin:
+      service: admin-service
+      port: 5011
+
+  # - domain: aks-test.arthajobboard.com
+  #   dnsReady: true
+  #   certificateScope: non-www      #values: both | www | non-www -> For more detail use README.md
+  #   canonicalHost: apex             #values: www | apex -> For more detail use README.md
+  #   frontend:
+  #     service: frontend-service
+  #     port: 5010
+  #   admin:
+  #     service: admin-service
+  #     port: 5011

@@ -1,0 +1,36 @@
+{{- if and .Values.gateway .Values.gateway.enabled }}
+{{- range .Values.domains }}
+{{- if and .dnsReady (eq .canonicalHost "www") }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .domain | replace "." "-" }}-www
+  namespace: {{ $.Values.routesNamespace }}
+spec:
+  parentRefs:
+  - name: {{ $.Values.gateway.name }}
+    namespace: {{ $.Values.gateway.namespace }}
+
+  hostnames:
+  - www.{{ .domain }}
+
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /admin
+    backendRefs:
+    - name: {{ .admin.service }}
+      port: {{ .admin.port }}
+
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ .frontend.service }}
+      port: {{ .frontend.port }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

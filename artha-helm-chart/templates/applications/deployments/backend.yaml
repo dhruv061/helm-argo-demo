@@ -1,0 +1,34 @@
+{{- if .Values.applications.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: {{ .Values.applications.namespace }}
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.applications.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend-container
+        image: "{{ .Values.applications.imageRegistry }}/{{ .Values.applications.backend.image.repository }}:{{ .Values.applications.backend.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.applications.backend.containerPort }}
+        resources:
+          {{- toYaml .Values.applications.backend.resources | nindent 10 }}
+        {{- if .Values.applications.backend.readinessProbe.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.applications.backend.readinessProbe.tcpSocket.port }}
+          initialDelaySeconds: {{ .Values.applications.backend.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.applications.backend.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.applications.backend.readinessProbe.timeoutSeconds }}
+          failureThreshold: 3
+        {{- end }}
+{{- end }}

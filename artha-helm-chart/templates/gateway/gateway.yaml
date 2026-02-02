@@ -1,0 +1,99 @@
+{{- if and .Values.gateway .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  namespace: {{ .Values.gateway.namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.gateway.issuer }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+
+# PRIMARY application domain
+{{- if .Values.primaryDomain.enabled }}
+  # Primary Domain Listeners - Using custom TLS secret
+  - name: https-api-{{ .Values.primaryDomain.domain | replace "." "-" }}
+    port: 443
+    protocol: HTTPS
+    hostname: api.{{ .Values.primaryDomain.domain }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.primaryDomain.tls.secretName }}
+        namespace: {{ .Values.primaryDomain.tls.secretNamespace }}
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-app-{{ .Values.primaryDomain.domain | replace "." "-" }}
+    port: 443
+    protocol: HTTPS
+    hostname: app.{{ .Values.primaryDomain.domain }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.primaryDomain.tls.secretName }}
+        namespace: {{ .Values.primaryDomain.tls.secretNamespace }}
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https-wildcard-{{ .Values.primaryDomain.domain | replace "." "-" }}
+    port: 443
+    protocol: HTTPS
+    hostname: "*.{{ .Values.primaryDomain.domain }}"
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ .Values.primaryDomain.tls.secretName }}
+        namespace: {{ .Values.primaryDomain.tls.secretNamespace }}
+    allowedRoutes:
+      namespaces:
+        from: All
+{{- end }}
+
+{{- range .Values.domains }}
+{{- if .dnsReady }}
+
+# For All Custom domains
+{{- if or (eq .certificateScope "non-www") (eq .certificateScope "both") }}
+  - name: https-{{ .domain | replace "." "-" }}
+    port: 443
+    protocol: HTTPS
+    hostname: {{ .domain }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ .domain | replace "." "-" }}-tls
+    allowedRoutes:
+      namespaces:
+        from: All
+{{- end }}
+
+{{- if or (eq .certificateScope "www") (eq .certificateScope "both") }}
+  - name: https-www-{{ .domain | replace "." "-" }}
+    port: 443
+    protocol: HTTPS
+    hostname: www.{{ .domain }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: www-{{ .domain | replace "." "-" }}-tls
+    allowedRoutes:
+      namespaces:
+        from: All
+{{- end }}
+
+{{- end }}
+{{- end }}
+{{- end }}

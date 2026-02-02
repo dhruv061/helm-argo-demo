@@ -1,0 +1,107 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-helm-app
+  namespace: argocd
+  annotations:
+    # ============================================================================
+    # ArgoCD Image Updater Configuration (Optional)
+    # ============================================================================
+    # Uncomment below to enable automatic image tag updates from ACR
+    # See IMAGE-UPDATER-SETUP.md for complete setup instructions
+    # ============================================================================
+    
+    # Track images from ACR
+    # argocd-image-updater.argoproj.io/image-list: |
+    #   backend=helmtest.azurecr.io/arthanode,
+    #   frontend=helmtest.azurecr.io/arthaweb,
+    #   admin=helmtest.azurecr.io/arthaadmin
+    
+    # Update strategy: latest (for latest tag) or semver (for v1.0.0 style tags)
+    # argocd-image-updater.argoproj.io/backend.update-strategy: semver
+    # argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^v[0-9]+\.[0-9]+\.[0-9]+$
+    # argocd-image-updater.argoproj.io/frontend.update-strategy: semver
+    # argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^v[0-9]+\.[0-9]+\.[0-9]+$
+    # argocd-image-updater.argoproj.io/admin.update-strategy: semver
+    # argocd-image-updater.argoproj.io/admin.allow-tags: regexp:^v[0-9]+\.[0-9]+\.[0-9]+$
+    
+    # Helm value paths
+    # argocd-image-updater.argoproj.io/backend.helm.image-tag: applications.backend.image.tag
+    # argocd-image-updater.argoproj.io/frontend.helm.image-tag: applications.frontend.image.tag
+    # argocd-image-updater.argoproj.io/admin.helm.image-tag: applications.admin.image.tag
+    
+    # ACR credentials (create secret: kubectl create secret docker-registry acr-credentials ...)
+    # argocd-image-updater.argoproj.io/backend.pull-secret: secret:argocd/acr-credentials
+    # argocd-image-updater.argoproj.io/frontend.pull-secret: secret:argocd/acr-credentials
+    # argocd-image-updater.argoproj.io/admin.pull-secret: secret:argocd/acr-credentials
+    
+    # Write back to Git - Updates application-values.yaml directly
+    # argocd-image-updater.argoproj.io/write-back-method: git
+    # argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
+    # argocd-image-updater.argoproj.io/git-branch: main
+  
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # Project name
+  project: default
+  
+  # Source repository configuration
+  source:
+    # Git repository URL - UPDATE THIS to your actual repository URL
+    repoURL: https://github.com/YOUR-ORG/ingress-to-gatway-api.git
+    targetRevision: main  # or master, depending on your default branch
+    path: artha-helm-chart
+    
+    # Helm specific configuration
+    helm:
+      # Values files to use (in order of precedence)
+      valueFiles:
+        - application-values.yaml  # Application config (image tags updated here)
+        - gateway-values.yaml      # Gateway API config
+      
+      # Release name for Helm
+      releaseName: demo-helm-app
+      
+      # Skip CRDs if they're already installed
+      # skipCrds: true
+  
+  # Destination cluster and namespace
+  destination:
+    # Use 'https://kubernetes.default.svc' for in-cluster
+    server: https://kubernetes.default.svc
+    namespace: default
+  
+  # Sync policy configuration - MANUAL SYNC
+  syncPolicy:
+    # Manual sync - requires explicit sync trigger via UI or CLI
+    # automated:
+    #   prune: false
+    #   selfHeal: false
+    
+    # Sync options
+    syncOptions:
+      - CreateNamespace=true  # Create namespace if it doesn't exist
+      - PrunePropagationPolicy=foreground  # Proper cleanup order
+      - PruneLast=true  # Prune resources at the end of sync
+      - RespectIgnoreDifferences=true
+      - ServerSideApply=true  # Use server-side apply for better handling
+    
+    # Retry configuration for failed syncs
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Ignore differences for certain fields (optional)
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Ignore replica differences (HPA controls this)
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /status  # Ignore HPA status changes
