@@ -55,33 +55,39 @@ spec:
   
   # Ignore differences for fields managed by Gateway controllers
   ignoreDifferences:
-    # Gateway API HTTPRoute - Ignore ALL parentRefs and backendRefs normalization
+    # HTTPRoute - Ignore controller-added fields in parentRefs
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       jsonPointers:
-        # ParentRefs - controller adds kind, group, namespace
-        - /spec/parentRefs
-        # BackendRefs - controller adds kind, group, namespace
-        - /spec/rules/*/backendRefs
+        - /spec/parentRefs/*/kind
+        - /spec/parentRefs/*/group
+        - /spec/parentRefs/*/namespace
+        - /spec/parentRefs/*/sectionName
     
-    # Gateway API HTTPRoute - Ignore TLS certificateRefs
+    # HTTPRoute - Ignore controller-added fields in backendRefs  
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      jqPathExpressions:
-        - '.spec.tls[]?.certificateRefs[]?'
+      jsonPointers:
+        - /spec/rules/*/backendRefs/*/kind
+        - /spec/rules/*/backendRefs/*/group
+        - /spec/rules/*/backendRefs/*/namespace
     
-    # Certificate - Ignore secretTemplate fields added by cert-manager
+    # HTTPRoute - Ignore TLS certificateRefs fields
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /spec/tls/*/certificateRefs/*/kind
+        - /spec/tls/*/certificateRefs/*/group
+    
+    # Certificate - Ignore cert-manager fields
     - group: cert-manager.io
       kind: Certificate
       jsonPointers:
         - /spec/secretTemplate
-        - /spec/privateKey/rotationPolicy
-        - /spec/privateKey/algorithm
-        - /spec/privateKey/size
+        - /spec/privateKey
     
-    # Gateway - Ignore status and listener normalization
+    # Gateway - Ignore status
     - group: gateway.networking.k8s.io
       kind: Gateway
       jsonPointers:
         - /status
-        - /spec/listeners
