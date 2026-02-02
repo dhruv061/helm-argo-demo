@@ -1,0 +1,63 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: demo-artha-app-updater
+  namespace: argocd
+spec:
+  # Target namespace where ArgoCD Applications are located
+  namespace: argocd
+
+  # Global update settings
+  commonUpdateSettings:
+    # Update strategy: newest-build tracks by build timestamp
+    updateStrategy: "newest-build"
+    # Force update even if version appears same
+    forceUpdate: false
+
+  # Write-back configuration - commits to Git
+  # Format: git:secret:<namespace>/<secret_name> to specify credentials
+  writeBackConfig:
+    method: "git:secret:argocd/git-creds"
+    gitConfig:
+      # Your GitHub repository (optional - will use Application's repoURL if not set)
+      repository: "https://github.com/dhruv061/helm-argo-demo.git"
+      branch: "master"
+      # Target file to update (relative to Application's source path: artha-helm-chart/)
+      writeBackTarget: "helmvalues:application-values.yaml"
+
+
+  # Select which ArgoCD application(s) to monitor
+  applicationRefs:
+    - namePattern: "demo-artha-app"
+      # Images to track for this application
+      images:
+        # Backend API image
+        - alias: "backend"
+          imageName: "helmtest.azurecr.io/arthanode"
+          commonUpdateSettings:
+            # Use the acr-credentials secret (docker-registry type)
+            pullSecret: "pullsecret:argocd/acr-credentials"
+          manifestTargets:
+            helm:
+              name: "applications.backend.image.repository"
+              tag: "applications.backend.image.tag"
+
+        # Frontend Web image
+        - alias: "frontend"
+          imageName: "helmtest.azurecr.io/arthaweb"
+          commonUpdateSettings:
+            pullSecret: "pullsecret:argocd/acr-credentials"
+          manifestTargets:
+            helm:
+              name: "applications.frontend.image.repository"
+              tag: "applications.frontend.image.tag"
+
+        # Admin Panel image
+        - alias: "admin"
+          imageName: "helmtest.azurecr.io/arthaadmin"
+          commonUpdateSettings:
+            pullSecret: "pullsecret:argocd/acr-credentials"
+          manifestTargets:
+            helm:
+              name: "applications.admin.image.repository"
+              tag: "applications.admin.image.tag"

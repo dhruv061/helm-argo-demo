@@ -29,6 +29,8 @@ metadata:
     argocd-image-updater.argoproj.io/write-back-method: git
     argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
     argocd-image-updater.argoproj.io/git-branch: master
+    # Git credentials secret for write-back (must create: kubectl create secret generic git-creds ...)
+    argocd-image-updater.argoproj.io/git-secret: git-creds
 
   finalizers:
     - resources-finalizer.argocd.argoproj.io
