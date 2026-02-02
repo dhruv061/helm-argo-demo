@@ -45,13 +45,6 @@ spec:
       valueFiles:
         - application-values.yaml
       releaseName: demo-artha-app
-      
-      # Disable gateway in this application
-      values: |
-        gateway:
-          enabled: false
-        primaryDomain:
-          enabled: false
 
   destination:
     server: https://kubernetes.default.svc
