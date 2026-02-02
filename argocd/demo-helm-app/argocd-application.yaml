@@ -38,7 +38,7 @@ metadata:
     # Write back to Git - Updates application-values.yaml directly
     # argocd-image-updater.argoproj.io/write-back-method: git
     # argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
-    # argocd-image-updater.argoproj.io/git-branch: main
+    # argocd-image-updater.argoproj.io/git-branch: master
   
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -48,9 +48,9 @@ spec:
   
   # Source repository configuration
   source:
-    # Git repository URL - UPDATE THIS to your actual repository URL
-    repoURL: https://github.com/YOUR-ORG/ingress-to-gatway-api.git
-    targetRevision: main  # or master, depending on your default branch
+    # Git repository URL
+    repoURL: https://github.com/dhruv061/helm-argo-demo.git
+    targetRevision: master  # Default branch
     path: artha-helm-chart
     
     # Helm specific configuration

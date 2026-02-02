@@ -20,7 +20,7 @@ applications:
   # Admin Panel
   admin:
     enabled: true
-    replicaCount: 2
+    replicaCount: 1
     image:
       repository: arthaadmin
       tag: v1.0.0
@@ -41,7 +41,7 @@ applications:
       periodSeconds: 10
     hpa:
       enabled: true
-      minReplicas: 2
+      minReplicas: 1
       maxReplicas: 10
       targetCPUUtilizationPercentage: 70
     service:
@@ -52,7 +52,7 @@ applications:
   # Backend API
   backend:
     enabled: true
-    replicaCount: 3
+    replicaCount: 1
     image:
       repository: arthanode
       tag: v1.0.0
@@ -73,7 +73,7 @@ applications:
       periodSeconds: 5
     hpa:
       enabled: true
-      minReplicas: 3
+      minReplicas: 1
       maxReplicas: 4
       metrics:
         - type: Resource
@@ -100,7 +100,7 @@ applications:
   # Frontend Web
   frontend:
     enabled: true
-    replicaCount: 3
+    replicaCount: 1
     image:
       repository: arthaweb
       tag: v1.0.0
@@ -121,7 +121,7 @@ applications:
       periodSeconds: 5
     hpa:
       enabled: true
-      minReplicas: 3
+      minReplicas: 1
       maxReplicas: 4
       metrics:
         - type: Resource
