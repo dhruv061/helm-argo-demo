@@ -3,35 +3,8 @@ kind: Application
 metadata:
   name: demo-artha-app
   namespace: argocd
-  annotations:
-    # Enable image updater
-    argocd-image-updater.argoproj.io/image-list: |
-      backend=helmtest.azurecr.io/arthanode,
-      frontend=helmtest.azurecr.io/arthaweb,
-      admin=helmtest.azurecr.io/arthaadmin
-
-    # Update strategy: semver for version tags (v1.0.0), or latest for latest tag
-    argocd-image-updater.argoproj.io/backend.update-strategy: newest-build
-    argocd-image-updater.argoproj.io/frontend.update-strategy: newest-build
-    argocd-image-updater.argoproj.io/admin.update-strategy: newest-build
-    
-    # Helm value paths to update
-    argocd-image-updater.argoproj.io/backend.helm.image-tag: applications.backend.image.tag
-    argocd-image-updater.argoproj.io/frontend.helm.image-tag: applications.frontend.image.tag
-    argocd-image-updater.argoproj.io/admin.helm.image-tag: applications.admin.image.tag
-
-    # ACR credentials (must create secret: kubectl create secret docker-registry acr-credentials ...)
-    argocd-image-updater.argoproj.io/backend.pull-secret: secret:argocd/acr-credentials
-    argocd-image-updater.argoproj.io/frontend.pull-secret: secret:argocd/acr-credentials
-    argocd-image-updater.argoproj.io/admin.pull-secret: secret:argocd/acr-credentials
-
-    # Write back to Git - Updates application-values.yaml directly
-    argocd-image-updater.argoproj.io/write-back-method: git
-    argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
-    argocd-image-updater.argoproj.io/git-branch: master
-    # Git credentials secret for write-back (must create: kubectl create secret generic git-creds ...)
-    argocd-image-updater.argoproj.io/git-secret: git-creds
-
+  # Note: Image Updater is now configured via ImageUpdater CR (image-updater.yaml)
+  # Annotations are no longer needed with v1.0.2+
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
