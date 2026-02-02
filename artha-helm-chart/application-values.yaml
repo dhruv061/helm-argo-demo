@@ -13,17 +13,15 @@ applications:
   # Image registry configuration
   imageRegistry: helmtest.azurecr.io
   imagePullPolicy: IfNotPresent
-  
   # Namespace for application resources
   namespace: default
-  
   # Admin Panel
   admin:
     enabled: true
     replicaCount: 1
     image:
       repository: arthaadmin
-      tag: v1.0.0
+      tag: v1.0.1
     containerPort: 5011
     resources:
       limits:
@@ -48,7 +46,6 @@ applications:
       name: admin-service
       port: 80
       targetPort: 5011
-  
   # Backend API
   backend:
     enabled: true
@@ -76,14 +73,14 @@ applications:
       minReplicas: 1
       maxReplicas: 4
       metrics:
-        - type: Resource
-          resource:
-            name: cpu
-            targetAverageUtilization: 75
-        - type: Resource
-          resource:
-            name: memory
-            targetAverageUtilization: 90
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 75
+      - type: Resource
+        resource:
+          name: memory
+          targetAverageUtilization: 90
       behavior:
         scaleUp:
           stabilizationWindowSeconds: 0
@@ -96,7 +93,6 @@ applications:
       name: backend-service
       port: 80
       targetPort: 5012
-  
   # Frontend Web
   frontend:
     enabled: true
@@ -124,14 +120,14 @@ applications:
       minReplicas: 1
       maxReplicas: 4
       metrics:
-        - type: Resource
-          resource:
-            name: cpu
-            targetAverageUtilization: 75
-        - type: Resource
-          resource:
-            name: memory
-            targetAverageUtilization: 90
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 75
+      - type: Resource
+        resource:
+          name: memory
+          targetAverageUtilization: 90
       behavior:
         scaleUp:
           stabilizationWindowSeconds: 0
@@ -144,7 +140,6 @@ applications:
       name: frontend-service
       port: 80
       targetPort: 5010
-  
   # Cron Service
   cronService:
     enabled: false
@@ -153,9 +148,8 @@ applications:
       repository: arthanode
       tag: migrated-v5.0.2
     command:
-      - node
-      - /app/api/components/cron-service/index.js
-  
+    - node
+    - /app/api/components/cron-service/index.js
   # Email Alert Job
   emailAlertJob:
     enabled: false
@@ -164,5 +158,5 @@ applications:
       repository: arthanode
       tag: migrated-v5.0.2
     command:
-      - node
-      - /app/api/modules/notification/src/index.js
+    - node
+    - /app/api/modules/notification/src/index.js
