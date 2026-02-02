@@ -30,44 +30,41 @@ metadata:
     argocd-image-updater.argoproj.io/write-back-target: helmvalues:artha-helm-chart/application-values.yaml
     argocd-image-updater.argoproj.io/git-branch: master
 
-  # Ensures all Kubernetes resources managed by this Argo CD Application
-  # are deleted before the Application itself is removed (prevents orphaned resources)
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  # Project name
   project: default
-  # Source repository configuration
+  
   source:
-    # Git repository URL
     repoURL: https://github.com/dhruv061/helm-argo-demo.git
-    targetRevision: master  # Default branch
+    targetRevision: master
     path: artha-helm-chart
     
-    # Helm specific configuration
     helm:
-      # Values files to use (in order of precedence)
+      # Only use application-values.yaml (no gateway config)
       valueFiles:
         - application-values.yaml
-        - gateway-values.yaml
-      releaseName: demo-helm-app       # Release name for Helm
+      releaseName: demo-artha-app
       
-  # Destination cluster and namespace
+      # Disable gateway in this application
+      values: |
+        gateway:
+          enabled: false
+        primaryDomain:
+          enabled: false
+
   destination:
     server: https://kubernetes.default.svc
     namespace: default
   
-  # Sync policy configuration - MANUAL SYNC
-  syncPolicy:    
-    # Sync options
+  syncPolicy:
     syncOptions:
-      - CreateNamespace=true  # Create namespace if it doesn't exist
-      - PrunePropagationPolicy=foreground  # Proper cleanup order
-      - PruneLast=true  # Prune resources at the end of sync
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
       - RespectIgnoreDifferences=true
-      - ServerSideApply=true  # Use server-side apply for better handling
+      - ServerSideApply=true
     
-    # Retry configuration for failed syncs
     retry:
       limit: 5
       backoff:
@@ -75,13 +72,12 @@ spec:
         factor: 2
         maxDuration: 3m
   
-  # Ignore differences for certain fields (optional)
   ignoreDifferences:
     - group: apps
       kind: Deployment
       jsonPointers:
-        - /spec/replicas  # Ignore replica differences (HPA controls this)
+        - /spec/replicas
     - group: autoscaling
       kind: HorizontalPodAutoscaler
       jsonPointers:
-        - /status  # Ignore HPA status changes
+        - /status

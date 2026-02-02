@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-gateway-app
+  namespace: argocd
+  
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/dhruv061/helm-argo-demo.git
+    targetRevision: master
+    path: artha-helm-chart
+    
+    helm:
+      # Only use gateway-values.yaml
+      valueFiles:
+        - gateway-values.yaml
+      releaseName: demo-gateway-app
+      
+      # Disable applications in this release
+      values: |
+        applications:
+          admin:
+            enabled: false
+          backend:
+            enabled: false
+          frontend:
+            enabled: false
+          cronService:
+            enabled: false
+          emailAlertJob:
+            enabled: false
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ServerSideApply=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
