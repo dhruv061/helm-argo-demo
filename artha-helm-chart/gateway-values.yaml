@@ -9,7 +9,7 @@
 # ============================================================================
 
 gateway:
-  enabled: false
+  enabled: true
   name: nginx-gateway
   namespace: nginx-gateway
   className: nginx
@@ -43,7 +43,7 @@ primaryDomain:
 # Client Domains
 domains:
   - domain: dhruv.jobsinrajkot.com
-    dnsReady: false
+    dnsReady: true
     certificateScope: both      #values: both | www | non-www -> For more detail use README.md
     canonicalHost: www          #values: www | apex -> For more detail use README.md
     frontend:
