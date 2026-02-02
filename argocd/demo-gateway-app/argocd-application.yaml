@@ -38,3 +38,28 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
+  
+  # Ignore differences for fields managed by Gateway controllers
+  ignoreDifferences:
+    # Gateway API HTTPRoute - Ignore parentRefs kind/name normalization
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /spec/parentRefs/0/kind
+        - /spec/parentRefs/0/name
+        - /spec/rules/*/backendRefs/*/kind
+        - /spec/rules/*/backendRefs/*/name
+    
+    # Certificate - Ignore secretTemplate fields added by cert-manager
+    - group: cert-manager.io
+      kind: Certificate
+      jsonPointers:
+        - /spec/secretTemplate
+        - /spec/privateKey/rotationPolicy
+    
+    # Gateway - Ignore status fields
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      jsonPointers:
+        - /status
+
