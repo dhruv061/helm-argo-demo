@@ -20,6 +20,20 @@ spec:
         - gateway-values.yaml
       releaseName: demo-gateway-app
       
+      # Explicitly disable applications (gateway-values.yaml has no applications config)
+      values: |
+        applications:
+          admin:
+            enabled: false
+          backend:
+            enabled: false
+          frontend:
+            enabled: false
+          cronService:
+            enabled: false
+          emailAlertJob:
+            enabled: false
+      
   destination:
     server: https://kubernetes.default.svc
     namespace: default
