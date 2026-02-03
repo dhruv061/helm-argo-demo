@@ -1,128 +1,116 @@
-# Gateway Migration Helm Chart
+# Artha Helm Chart
 
-This Helm chart is designed to safely migrate **hundreds of domains** from **NGINX Ingress** to **NGINX Gateway Fabric**, while handling:
-
-- Client-controlled DNS cutover
-- cert-manager + Let’s Encrypt
-- Cloudflare-managed `www` SSL (optional)
-- Per-domain SSL and redirect behavior
-- Zero-downtime, gradual migration
-
-This README explains **folder structure**, **all flags**, and **when to use what**.
+Complete Helm chart for deploying the Artha application stack with Gateway API support and application components.
 
 ---
 
-## Folder Structure
+## Table of Contents
 
-```
-artha-helm-chart/
-├── Chart.yaml
-├── values.yaml                  # Combined values (optional - for single-file usage)
-├── gateway-values.yaml         # Gateway API configuration only
-├── application-values.yaml     # Application components configuration only
-├── README.md
-└── templates/
-    ├── gateway/             # Gateway API resources
-    │   ├── gateway.yaml    # Gateway + HTTPS listeners (TLS control)
-    │   ├── httproute-apex.yaml  # Serve apex domains (domain.com)
-    │   ├── httproute-www.yaml   # Serve www domains (www.domain.com)
-    │   ├── httproute-redirect.yaml # Redirect apex → www
-    │   ├── reference-grant.yaml # Cross-namespace access
-    │   └── artha-httproutes/    # Primary domain routes
-    │       ├── api-httproute.yaml
-    │       ├── app-httproute.yaml
-    │       └── wildcard-httproute.yaml
-    │
-    └── applications/        # Application components
-        ├── deployments/    # 5 deployments
-        │   ├── admin.yaml
-        │   ├── backend.yaml
-        │   ├── cron-service.yaml
-        │   ├── email-alert-job.yaml
-        │   └── frontend.yaml
-        ├── services/      # 3 services
-        │   ├── admin-service.yaml
-        │   ├── backend-service.yaml
-        │   └── frontend-service.yaml
-        ├── hpa/           # 3 horizontal pod autoscalers
-        │   ├── admin-hpa.yaml
-        │   ├── backend-hpa.yaml
-        │   └── frontend-hpa.yaml
-        ├── pdb/           # 2 pod disruption budgets
-        │   ├── backend-pdb.yaml
-        │   └── frontend-pdb.yaml
-        └── secrets/       # SSL secret reference
-            └── ssl-secret.yaml
-```
-
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Values Files](#values-files)
+- [Installation Methods](#installation-methods)
+- [Common Operations](#common-operations)
+- [Application Components](#application-components)
+- [Gateway API Configuration](#gateway-api-configuration)
+- [Domain Flags Explained](#domain-flags-explained)
+- [Migration Workflow](#migration-workflow)
+- [Helm Commands Reference](#helm-commands-reference)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## High-Level Architecture
+## Overview
 
-**Gateway**
-- Owns LoadBalancer
-- Owns TLS termination
-- Triggers cert-manager via `hostname`
+This Helm chart manages:
 
-**HTTPRoute**
-- Owns routing logic
-- Decides serve vs redirect
-- One route per hostname behavior
+### Application Components
+- **5 Deployments**: admin, backend, frontend, cron-service, email-alert-job
+- **3 Services**: admin-service, backend-service, frontend-service
+- **3 HPAs**: Horizontal Pod Autoscalers for admin, backend, frontend
+- **2 PDBs**: Pod Disruption Budgets for backend, frontend
+- **SSL Secrets**: TLS certificate management
 
-**Helm**
-- Generates everything from a single domain inventory
-- Prevents human error
-
----
-
-## values.yaml – Single Source of Truth
-
-This file describes **what is true in the real world**.
-
-```yaml
-gateway:
-  name: nginx-gateway
-  namespace: nginx-gateway
-  className: nginx
-  issuer: letsencrypt-prod
-
-routesNamespace: default
-
-domains:
-  - domain: example.com
-    service: frontend-service
-    port: 80
-
-    dnsReady: true
-    certificateScope: non-www
-    canonicalHost: www
-```
-
-You should **never edit templates** during normal operations.
+### Gateway API Resources
+- **Gateway**: NGINX Gateway Fabric with HTTPS listeners
+- **HTTPRoutes**: Domain routing (apex, www, redirects)
+- **Certificate Management**: cert-manager + Let's Encrypt integration
+- **Multi-domain Support**: Hundreds of domains with per-domain SSL configuration
 
 ---
 
-## Using Split Values Files
+## Quick Start
 
-This chart supports two approaches for managing configurations:
+### Prerequisites
+- Kubernetes cluster with Gateway API CRDs installed
+- NGINX Gateway Fabric controller running
+- cert-manager installed (for SSL certificates)
+- Helm 3.x
 
-### Option 1: Single Values File (Traditional)
-
-Use the combined `values.yaml` containing both gateway and application configurations:
+### Install Everything (Applications + Gateway)
 
 ```bash
-helm install artha .
-# or
-helm upgrade artha .
+helm install artha . \
+  -f gateway-values.yaml \
+  -f application-values.yaml
 ```
 
-### Option 2: Split Values Files (Recommended)
+### Install Applications Only (No Gateway)
 
-Use separate files for better organization and independent updates:
+```bash
+helm install artha . -f application-values.yaml
+```
 
-- **`gateway-values.yaml`** - Gateway API, domains, TLS, HTTPRoute configurations
-- **`application-values.yaml`** - Application components (deployments, services, HPAs, PDBs)
+### Verify Installation
+
+```bash
+# Check all resources
+kubectl get all -n default
+
+# Check Gateway resources
+kubectl get gateway,httproute -n nginx-gateway
+
+# Check certificates
+kubectl get certificates -n nginx-gateway
+```
+
+---
+
+## Values Files
+
+This chart uses **two separate values files** for better organization:
+
+### 1. `application-values.yaml`
+**Contains**: Application component configurations
+
+- Image registry and tags
+- Replica counts
+- Resource limits/requests
+- HPA settings
+- PDB configurations
+- Environment variables
+
+**Update when**: Deploying new application versions, scaling, changing resources
+
+### 2. `gateway-values.yaml`
+**Contains**: Gateway API and routing configurations
+
+- Gateway settings
+- Domain configurations
+- TLS/SSL settings
+- HTTPRoute rules
+- Certificate scopes
+
+**Update when**: Adding domains, changing routing, updating SSL configuration
+
+### Optional: `values.yaml` (Combined)
+For backward compatibility, you can use a single combined values file, but split files are recommended.
+
+---
+
+## Installation Methods
+
+### Method 1: Split Values (Recommended)
 
 **Install with both files:**
 ```bash
@@ -131,63 +119,122 @@ helm install artha . \
   -f application-values.yaml
 ```
 
-**Update only Gateway configuration:**
+**Update only Gateway:**
 ```bash
 helm upgrade artha . \
   -f gateway-values.yaml \
   --reuse-values
 ```
 
-**Update only Application configuration:**
+**Update only Applications:**
 ```bash
 helm upgrade artha . \
   -f application-values.yaml \
   --reuse-values
 ```
 
-**Update application image version:**
+### Method 2: Single Values File
+
 ```bash
-# Edit application-values.yaml, change image tag
-helm upgrade artha . -f application-values.yaml --reuse-values
+# Install with combined configuration
+helm install artha . -f values.yaml
+# or simply
+helm install artha .
 ```
 
-**Benefits of split files:**
-- 🎯 Update gateway config without touching application config
-- 🔄 Update application versions independently
-- 👥 Different teams can manage different files
-- 📝 Cleaner version control and change tracking
+### Method 3: Deploy Applications Only First
+
+Useful when:
+- 🔧 Setting up a new cluster
+- 🧪 Testing application deployments before exposing them
+- 📦 Managing Gateway separately
+- ⚙️ Gateway API isn't installed yet
+
+```bash
+# Step 1: Deploy applications only
+helm install artha . -f application-values.yaml
+
+# Step 2: Later, add Gateway
+helm upgrade artha . \
+  -f gateway-values.yaml \
+  -f application-values.yaml
+```
+
+This deploys:
+- ✅ 5 Deployments
+- ✅ 3 Services
+- ✅ 3 HPAs
+- ✅ 2 PDBs
+- ❌ No Gateway resources
 
 ---
 
+## Common Operations
 
-## Application Components Configuration
+### Update Application Image Version
 
-In addition to Gateway API resources, this Helm chart manages your complete application stack. All application components are configured in the `applications` section of `values.yaml`.
+1. Edit `application-values.yaml`:
+   ```yaml
+   applications:
+     backend:
+       image:
+         tag: migrated-v5.0.3  # Update version
+   ```
 
-### Components Included
+2. Apply changes:
+   ```bash
+   helm upgrade artha . -f application-values.yaml --reuse-values
+   ```
 
-1. **Deployments** (5 total):
-   - `admin` - Admin panel application
-   - `backend` - Backend API service
-   - `frontend` - Frontend web application
-   - `cronService` - Cron job service
-   - `emailAlertJob` - Email notification service
+### Add New Client Domain
 
-2. **Services** (3 total):
-   - `admin-service` - Exposes admin deployment
-   - `backend-service` - Exposes backend deployment
-   - `frontend-service` - Exposes frontend deployment
+1. Edit `gateway-values.yaml`:
+   ```yaml
+   domains:
+     - domain: newclient.example.com
+       dnsReady: true
+       certificateScope: both
+       canonicalHost: www
+       service: frontend-service
+       port: 80
+   ```
 
-3. **Horizontal Pod Autoscalers** (3 total):
-   - `admin-hpa` - CPU-based scaling for admin
-   - `backend-hpa` - CPU & memory scaling with custom behavior
-   - `frontend-hpa` - CPU & memory scaling with custom behavior
+2. Apply changes:
+   ```bash
+   helm upgrade artha . -f gateway-values.yaml --reuse-values
+   ```
 
-4. **Pod Disruption Budgets** (2 total):
-   - `backend-pdb` - Ensures minimum availability for backend
-   - `frontend-pdb` - Ensures minimum availability for frontend
+### Scale Application
 
-### Example Application Configuration
+1. Edit `application-values.yaml`:
+   ```yaml
+   applications:
+     backend:
+       replicaCount: 5
+       hpa:
+         maxReplicas: 10
+   ```
+
+2. Apply changes:
+   ```bash
+   helm upgrade artha . -f application-values.yaml --reuse-values
+   ```
+
+### Update Both Applications and Gateway
+
+```bash
+helm upgrade artha . \
+  -f gateway-values.yaml \
+  -f application-values.yaml
+```
+
+---
+
+## Application Components
+
+### Deployments Configuration
+
+Each application component can be individually enabled/disabled:
 
 ```yaml
 applications:
@@ -213,341 +260,330 @@ applications:
       maxReplicas: 4
 ```
 
-### Enabling/Disabling Components
+### Horizontal Pod Autoscalers
 
-Each application component can be individually enabled or disabled:
+- **admin-hpa**: CPU-based (70% target)
+- **backend-hpa**: CPU & memory with custom scaling behavior
+- **frontend-hpa**: CPU & memory with custom scaling behavior
 
-```yaml
-applications:
-  admin:
-    enabled: true    # Set to false to disable
-  backend:
-    enabled: true
-  frontend:
-    enabled: true
-  cronService:
-    enabled: true
-  emailAlertJob:
-    enabled: true
-```
+### Pod Disruption Budgets
 
-### Updating Image Tags
-
-To update an application version, modify the `tag` value:
-
-```yaml
-applications:
-  backend:
-    image:
-      tag: migrated-v5.0.3  # Update version here
-```
-
-Then run `helm upgrade` to deploy the new version.
+- **backend-pdb**: Ensures minimum 2 pods available
+- **frontend-pdb**: Ensures minimum 2 pods available
 
 ---
 
+## Gateway API Configuration
+
+### Gateway Settings
+
+```yaml
+gateway:
+  enabled: true
+  name: nginx-gateway
+  namespace: nginx-gateway
+  className: nginx
+  issuer: letsencrypt-prod
+```
+
+### Domain Configuration Example
+
+```yaml
+domains:
+  - domain: example.com
+    service: frontend-service
+    port: 80
+    dnsReady: true
+    certificateScope: non-www
+    canonicalHost: www
+```
+
+---
 
 ## Domain Flags Explained
 
-Each domain has **three explicit flags**. They represent **real-world state**, not Kubernetes internals.
+Each domain has **three explicit flags** that represent real-world state:
 
----
+### 1. `dnsReady` (true | false)
 
-### 1. `dnsReady`
-
-```yaml
-dnsReady: true | false
-```
-
-**Question it answers:**
-> Has the client already pointed DNS to the Gateway LoadBalancer IP?
+**Question**: Has DNS been pointed to the Gateway LoadBalancer IP?
 
 | Value | Meaning | Result |
-|------|--------|--------|
-| `false` | DNS still points to old Ingress | Nothing is created (safe) |
-| `true` | DNS points to Gateway | Listeners + routes allowed |
+|-------|---------|--------|
+| `false` | DNS still points to old Ingress | Nothing created (safe) |
+| `true` | DNS points to Gateway | Listeners + routes created |
 
-Why this exists:
-- Prevents premature Let’s Encrypt validation
-- Avoids ACME failures and rate limits
-- Enables gradual client-by-client migration
+**Why**: Prevents premature Let's Encrypt validation and ACME failures
 
----
+### 2. `certificateScope` (both | www | non-www)
 
-### 2. `certificateScope`
-
-```yaml
-certificateScope: both | www | non-www
-```
-
-**Question it answers:**
-> Which hostnames should get Let’s Encrypt certificates from cert-manager?
+**Question**: Which hostnames should get Let's Encrypt certificates?
 
 | Value | Certificates Issued For |
-|-----|-------------------------|
+|-------|------------------------|
 | `both` | `domain.com` and `www.domain.com` |
 | `www` | `www.domain.com` only |
 | `non-www` | `domain.com` only |
 
-Notes:
-- Used only when `dnsReady: true`
-- Independent of redirect behavior
-- Required because NGINX Gateway Fabric issues certs via `hostname`
+**Example**: Use `non-www` when Cloudflare handles `www` SSL
 
----
+### 3. `canonicalHost` (www | apex)
 
-### 3. `canonicalHost`
-
-```yaml
-canonicalHost: www | apex
-```
-
-**Question it answers:**
-> Which hostname should actually serve the application?
+**Question**: Which hostname should serve the application?
 
 | Value | Behavior |
-|------|----------|
+|-------|----------|
 | `www` | Serve `www.domain.com`, redirect `domain.com → www` |
 | `apex` | Serve `domain.com` only, no redirect |
 
-This flag controls **routing only**, not TLS.
-
 ---
 
-## How Templates Use These Flags
+## Common Domain Scenarios
 
-### gateway.yaml
-
-- Creates **HTTPS listeners only when `dnsReady=true`**
-- Creates listeners only for hostnames allowed by `certificateScope`
-- Triggers cert-manager automatically
-
-### httproute-apex.yaml
-
-- Created only when:
-  - `dnsReady=true`
-  - `canonicalHost=apex`
-
-### httproute-www.yaml
-
-- Created only when:
-  - `dnsReady=true`
-  - `canonicalHost=www`
-
-### httproute-redirect.yaml
-
-- Created only when:
-  - `dnsReady=true`
-  - `canonicalHost=www`
-
----
-
-## Common Scenarios (When to Use What)
-
-### 1. Cloudflare handles `www`, redirect apex → www (MOST COMMON)
+### Scenario 1: Cloudflare handles www, Gateway handles apex
 
 ```yaml
+domain: example.com
 dnsReady: true
-certificateScope: non-www
-canonicalHost: www
+certificateScope: non-www  # Only apex cert
+canonicalHost: www         # Redirect apex → www
 ```
 
-Result:
-- cert-manager issues cert only for apex
-- `domain.com → www.domain.com`
+**Result**:
+- cert-manager issues cert only for `example.com`
+- `example.com` redirects to `www.example.com`
 - Cloudflare terminates SSL for www
 
----
-
-### 2. Kubernetes handles SSL for both www and apex
+### Scenario 2: Gateway handles both www and apex
 
 ```yaml
+domain: example.com
 dnsReady: true
-certificateScope: both
-canonicalHost: www
+certificateScope: both     # Both certs
+canonicalHost: www         # Redirect apex → www
 ```
 
-Result:
-- cert-manager issues 2 certs
+**Result**:
+- cert-manager issues 2 certificates
 - Gateway terminates TLS for both
 - Apex redirects to www
 
----
-
-### 3. Serve only apex domain (no www)
+### Scenario 3: Serve only apex (no www)
 
 ```yaml
+domain: example.com
 dnsReady: true
 certificateScope: non-www
 canonicalHost: apex
 ```
 
-Result:
-- Only `domain.com` works
-- No redirect
+**Result**:
+- Only `example.com` works
 - No www route created
+- No redirect
 
----
-
-### 4. Client not migrated yet (SAFE STATE)
+### Scenario 4: Client not migrated yet (SAFE)
 
 ```yaml
+domain: example.com
 dnsReady: false
 ```
 
-Result:
-- No listeners
-- No cert issuance
-- Old Ingress continues to serve traffic
+**Result**:
+- No listeners created
+- No cert issuance attempted
+- Old infrastructure continues serving
 
 ---
 
-## Migration Workflow (Recommended)
+## Migration Workflow
 
-For each client:
+For gradual migration from NGINX Ingress to Gateway API:
 
-1. Client updates DNS → Gateway LB IP
-2. You verify DNS (`dig domain.com`)
-3. Set `dnsReady: true`
-4. Choose `certificateScope`
-5. Choose `canonicalHost`
-6. Merge to GitLab → Helm deploys
+1. **Client updates DNS** → Point to Gateway LoadBalancer IP
+2. **Verify DNS**: `dig domain.com` (should show Gateway IP)
+3. **Set flags** in `gateway-values.yaml`:
+   - `dnsReady: true`
+   - Choose `certificateScope`
+   - Choose `canonicalHost`
+4. **Deploy**: `helm upgrade artha . -f gateway-values.yaml --reuse-values`
+5. **Verify**: Check certificate issuance and routing
 
-Repeat per client.
+Repeat per client for safe, incremental migration.
 
 ---
 
-## Why This Design Works
+## Helm Commands Reference
 
-- Explicit intent (no magic)
-- Safe with external DNS ownership
-- Prevents SSL outages
-- Git-reviewed, auditable changes
-- Scales to 200+ domains
+### Installation
+
+```bash
+# First-time install
+helm install artha .
+```
+
+### Upgrade
+
+```bash
+# Standard upgrade (most common)
+helm upgrade --install artha .
+
+# With specific values files
+helm upgrade artha . \
+  -f gateway-values.yaml \
+  -f application-values.yaml
+```
+
+### Validation
+
+```bash
+# Lint the chart
+helm lint . -f gateway-values.yaml -f application-values.yaml
+
+# Dry run before deployment
+helm upgrade artha . \
+  -f gateway-values.yaml \
+  -f application-values.yaml \
+  --dry-run
+
+# View generated YAML
+helm template artha . \
+  -f gateway-values.yaml \
+  -f application-values.yaml
+```
+
+### Management
+
+```bash
+# View deployment history
+helm history artha
+
+# Rollback to previous version
+helm rollback artha <REVISION>
+
+# Uninstall (WARNING: removes all resources)
+helm uninstall artha
+```
+
+### Tips
+
+- **Always use `--dry-run`** before risky changes
+- **Prefer `helm upgrade`** over delete/recreate
+- **Use `helm template`** in code review to validate
+- **Never run `helm uninstall`** during active migration
+
+---
+
+## Troubleshooting
+
+### Pods Not Starting
+
+```bash
+# Check pod status
+kubectl get pods -n default
+
+# View pod logs
+kubectl logs <pod-name> -n default
+
+# Describe pod for events
+kubectl describe pod <pod-name> -n default
+```
+
+### Certificate Not Issuing
+
+```bash
+# Check certificate status
+kubectl get certificates -n nginx-gateway
+
+# Check cert-manager logs
+kubectl logs -n cert-manager deployment/cert-manager
+
+# Verify DNS is pointing to Gateway
+dig <domain>
+```
+
+### HTTPRoute Not Working
+
+```bash
+# Check HTTPRoute status
+kubectl get httproute -n default -o yaml
+
+# Check Gateway status
+kubectl get gateway -n nginx-gateway -o yaml
+
+# Verify ReferenceGrant exists
+kubectl get referencegrant -n default
+```
+
+### Gateway Shows OutOfSync in ArgoCD
+
+This is expected due to controller field normalization. Ignore directives are configured in ArgoCD application manifests.
+
+### Image Pull Errors
+
+```bash
+# Check imagePullSecrets exist
+kubectl get secrets -n default
+
+# Verify ACR credentials are correct
+kubectl get secret <secret-name> -n default -o yaml
+```
+
+---
+
+## Folder Structure
+
+```
+artha-helm-chart/
+├── Chart.yaml                    # Chart metadata
+├── README.md                     # This file
+├── application-values.yaml       # Application configuration
+├── gateway-values.yaml          # Gateway configuration
+└── templates/
+    ├── applications/            # Application resources
+    │   ├── deployments/        # 5 deployments
+    │   ├── services/           # 3 services
+    │   ├── hpa/                # 3 HPAs
+    │   ├── pdb/                # 2 PDBs
+    │   └── secrets/            # SSL secrets
+    │
+    └── gateway/                 # Gateway resources
+        ├── gateway.yaml         # Gateway + listeners
+        ├── httproute-apex.yaml  # Apex domain routes
+        ├── httproute-www.yaml   # WWW domain routes
+        ├── httproute-redirect.yaml # Redirects
+        ├── reference-grant.yaml # Cross-namespace access
+        └── artha-httproutes/    # Primary routes
+            ├── api-httproute.yaml
+            ├── app-httproute.yaml
+            └── wildcard-httproute.yaml
+```
 
 ---
 
 ## Golden Rules
 
-- Never set `dnsReady: true` before DNS cutover
-- Never edit Gateway YAML manually
-- Always change behavior via `values.yaml`
-- Treat Gateway as **generated output**, not infra code
-
----
-
-## Useful Helm Commands
-
-This section lists the **day-to-day Helm commands** you will actually use with this chart.
-
----
-
-### Install (first-time deployment)
-
-```bash
-helm install artha-helm-chart ./artha-helm-chart
-```
-
-Use this when:
-- Deploying Gateway for the first time
-- No existing Helm release exists
-
----
-
-### Upgrade (most common operation)
-
-```bash
-helm upgrade --install artha-helm-chart ./artha-helm-chart/
-```
-
-Use this when:
-- Adding a new domain
-- Flipping `dnsReady` to `true`
-- Changing `certificateScope`
-- Changing `canonicalHost`
-
-This is the **normal production workflow**.
-
----
-
-### Dry run (ALWAYS use before merge if unsure)
-
-```bash
-helm upgrade artha-helm-chart ./artha-helm-chart \
-  --dry-run
-```
-
-Use this when:
-- Reviewing a risky change
-- Verifying what Kubernetes objects will be created
-- Debugging template logic
-
----
-
-### Render manifests locally (debugging)
-
-```bash
-helm template artha-helm-chart ./artha-helm-chart
-```
-
-Use this when:
-- You want to see the **exact YAML** Helm will generate
-- Debugging conditions (`dnsReady`, `certificateScope`, `canonicalHost`)
-- Reviewing output in code review
-
----
-
-### Rollback (emergency recovery)
-
-```bash
-helm rollback artha-helm-chart <REVISION>
-```
-
-Find available revisions:
-
-```bash
-helm history artha-helm-chart
-```
-
-Use this when:
-- A bad `dnsReady=true` was merged
-- A certificate was triggered too early
-- You need instant recovery
-
----
-
-### Uninstall (DO NOT use during migration)
-
-```bash
-helm uninstall artha-helm-chart
-```
-
-⚠️ **Warning**:
-- Removes Gateway and all routes
-- Drops traffic immediately
-- Only use when fully decommissioning
-
----
-
-## Operational Tips
-
-- **Never** run `helm uninstall` during active migration
-- Prefer `helm upgrade` over delete/recreate
-- Use `helm template` in code review to validate behavior
-- Treat `values.yaml` as your audit log
+- ✅ Always change behavior via values files, never edit templates
+- ✅ Never set `dnsReady: true` before DNS cutover
+- ✅ Use `helm template` to verify changes before applying
+- ✅ Treat Gateway as generated output, not infrastructure code
+- ✅ Keep `values.yaml` as your audit log
 
 ---
 
 ## Summary
 
 This Helm chart provides:
-- Safe, incremental migration
-- Explicit SSL and redirect control
-- Git-reviewed, auditable operations
-- Predictable Helm workflows
 
-If something changes in production, the answer is always in:
+- ✅ Complete application stack management
+- ✅ Safe, incremental Gateway migration
+- ✅ Explicit SSL and redirect control
+- ✅ Git-reviewed, auditable operations
+- ✅ Predictable Helm workflows
+- ✅ Flexible deployment options (apps only, gateway only, or both)
 
-```yaml
-values.yaml
-```
+For ArgoCD integration and automated deployments, see the [ArgoCD documentation](../argocd/README.md).
+
+---
+
+**Ready to deploy!** 🚀

@@ -1,8 +1,34 @@
-# ArgoCD Applications Overview
+# ArgoCD Setup and Configuration Guide
 
-## Two Separate Applications
+Complete guide for deploying and managing applications with ArgoCD, covering setup, two-application architecture, image updates, and troubleshooting.
 
-You now have two independent ArgoCD applications for better separation of concerns:
+---
+
+## Table of Contents
+
+- [Repository Information](#repository-information)
+- [Two-Application Architecture](#two-application-architecture)
+- [Quick Start Guide](#quick-start-guide)
+- [Image Update Workflow](#image-update-workflow)
+- [Common Operations](#common-operations)
+- [Troubleshooting](#troubleshooting)
+- [Understanding OutOfSync Status](#understanding-outofsync-status)
+- [Repository Structure](#repository-structure)
+
+---
+
+## Repository Information
+
+- **Repository**: https://github.com/dhruv061/helm-argo-demo.git
+- **Branch**: master
+- **Helm Chart Path**: `artha-helm-chart/`
+- **Applications**: `demo-artha-app` and `demo-gateway-app`
+
+---
+
+## Two-Application Architecture
+
+This setup uses **two independent ArgoCD applications** for better separation of concerns:
 
 ### 1. Application Components (`demo-artha-app`)
 **File**: `argocd/demo-artha-app/argocd-application.yaml`
@@ -32,36 +58,59 @@ You now have two independent ArgoCD applications for better separation of concer
 
 **Image Updater**: ❌ Not needed (no container images)
 
-## Deployment Steps
+### Benefits of This Setup
 
-### Step 1: Delete Old Application
+**✅ Separation of Concerns**
+- Application deployments managed separately from gateway config
+- Changes to routing don't affect app deployments
+- Can update gateway without redeploying apps
+
+**✅ Independent Lifecycle**
+- Deploy new app versions without touching gateway
+- Update gateway routes without restarting apps
+- Different sync policies if needed
+
+**✅ Clear Ownership**
+- **demo-artha-app**: Owns deployments, services, HPAs, PDBs
+- **demo-gateway-app**: Owns gateway, HTTPRoutes, certificates
+
+**✅ Image Updater**
+- Only runs on demo-artha-app (where images exist)
+- Gateway app doesn't need image tracking
+
+---
+
+## Quick Start Guide
+
+### 1. Install ArgoCD (if not already installed)
 
 ```bash
-# Delete the old demo-helm-app
-kubectl delete application demo-helm-app -n argocd
+# Create argocd namespace
+kubectl create namespace argocd
 
-# This will NOT delete your running resources (they'll become unmanaged temporarily)
+# Install ArgoCD
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for pods to be ready
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 ```
 
-### Step 2: Clean Up Existing Resources (Important!)
-
-Since resources were created by the old app, we need to clean them up:
+### 2. Access ArgoCD UI
 
 ```bash
-# Delete existing PDBs (causing the error)
-kubectl delete pdb backend-pdb frontend-pdb -n default
+# Get admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+echo
 
-# Delete existing deployments
-kubectl delete deployment admin backend frontend -n default
+# Port forward to access UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-# Delete existing HPAs
-kubectl delete hpa admin-hpa backend-hpa frontend-hpa -n default
-
-# Services can stay (or delete if you want)
-# kubectl delete svc admin-service backend-service frontend-service -n default
+# Open browser: https://localhost:8080
+# Username: admin
+# Password: (from above command)
 ```
 
-### Step 3: Deploy Applications
+### 3. Deploy Both Applications
 
 ```bash
 # Deploy application components
@@ -74,65 +123,89 @@ kubectl apply -f argocd/demo-gateway-app/argocd-application.yaml
 kubectl get applications -n argocd
 ```
 
-### Step 4: Sync in ArgoCD UI
+### 4. Sync Applications
 
-1. Open ArgoCD UI: `kubectl port-forward svc/argocd-server -n argocd 8080:443`
-2. Login at https://localhost:8080
-3. You'll see two applications:
+#### Via ArgoCD UI:
+1. Open ArgoCD UI at https://localhost:8080
+2. You'll see two applications:
    - **demo-artha-app** (OutOfSync)
    - **demo-gateway-app** (OutOfSync)
-4. Click on **demo-artha-app** → **Sync** → **Synchronize**
-5. Click on **demo-gateway-app** → **Sync** → **Synchronize**
+3. Click on **demo-artha-app** → **Sync** → **Synchronize**
+4. Click on **demo-gateway-app** → **Sync** → **Synchronize**
 
-## Benefits of This Setup
+#### Via CLI:
+```bash
+# Install ArgoCD CLI (optional)
+curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+rm argocd-linux-amd64
 
-### ✅ Separation of Concerns
-- Application deployments managed separately from gateway config
-- Changes to routing don't affect app deployments
-- Can update gateway without redeploying apps
+# Login to ArgoCD
+argocd login localhost:8080 --username admin --insecure
 
-### ✅ Independent Lifecycle
-- Deploy new app versions without touching gateway
-- Update gateway routes without restarting apps
-- Different sync policies if needed
+# Sync both applications
+argocd app sync demo-artha-app
+argocd app sync demo-gateway-app
 
-### ✅ Clear Ownership
-- **demo-artha-app**: Owns deployments, services, HPAs, PDBs
-- **demo-gateway-app**: Owns gateway, HTTPRoutes, certificates
-
-### ✅ Image Updater
-- Only runs on demo-artha-app (where images exist)
-- Gateway app doesn't need image tracking
-
-## How It Works
-
-### Application Updates
-1. CI/CD pushes new image to ACR: `helmtest.azurecr.io/arthanode:v1.2.0`
-2. Image Updater detects new tag
-3. Updates `application-values.yaml` in Git
-4. **demo-artha-app** shows "OutOfSync"
-5. You sync → New version deploys
-
-### Gateway Updates
-1. You edit `gateway-values.yaml` (add new domain, change routes, etc.)
-2. Commit and push to GitHub
-3. **demo-gateway-app** shows "OutOfSync"
-4. You sync → Gateway routes update
-
-## Directory Structure
-
+# Wait for sync to complete
+argocd app wait demo-artha-app --timeout 300
+argocd app wait demo-gateway-app --timeout 300
 ```
-argocd/
-├── demo-artha-app/
-│   └── argocd-application.yaml     # App deployments
-└── demo-gateway-app/
-    └── argocd-application.yaml     # Gateway resources
+
+### 5. Verify Deployment
+
+```bash
+# Check application status
+kubectl get applications -n argocd
+
+# Check deployed resources
+kubectl get all -n default
+
+# Check pods
+kubectl get pods -n default
+
+# Check services
+kubectl get svc -n default
 ```
+
+---
+
+## Image Update Workflow
+
+### Without Image Updater (Manual)
+
+1. CI/CD pushes image to ACR: `helmtest.azurecr.io/arthanode:v1.2.0`
+2. **You manually update** `application-values.yaml`:
+   ```yaml
+   applications:
+     backend:
+       image:
+         tag: v1.2.0
+   ```
+3. Commit and push to GitHub
+4. ArgoCD shows "OutOfSync"
+5. You sync via UI
+
+### With Image Updater (Automatic Tag Detection)
+
+1. CI/CD pushes image to ACR: `helmtest.azurecr.io/arthanode:v1.2.0`
+2. **Image Updater automatically**:
+   - Detects new tag in ACR (every 2 minutes)
+   - Updates `application-values.yaml` with new tag
+   - Commits to GitHub: `build: automatic update of arthanode to v1.2.0`
+3. **demo-artha-app** shows "OutOfSync"
+4. You manually sync via ArgoCD UI to deploy
+
+**To enable Image Updater**: See [IMAGE-UPDATER-SETUP.md](IMAGE-UPDATER-SETUP.md)
+
+---
 
 ## Common Operations
 
 ### Update Application Image
+
 Happens automatically via Image Updater, or manually:
+
 ```bash
 # Edit application-values.yaml
 nano artha-helm-chart/application-values.yaml
@@ -143,6 +216,7 @@ git push origin master
 ```
 
 ### Add New Domain to Gateway
+
 ```bash
 # Edit gateway-values.yaml
 nano artha-helm-chart/gateway-values.yaml
@@ -153,6 +227,7 @@ git push origin master
 ```
 
 ### Scale Applications
+
 ```bash
 # Edit application-values.yaml
 nano artha-helm-chart/application-values.yaml
@@ -162,36 +237,233 @@ git push origin master
 # Sync demo-artha-app in ArgoCD UI
 ```
 
+### Useful CLI Commands
+
+```bash
+# Get application status
+argocd app get demo-artha-app
+argocd app get demo-gateway-app
+
+# View sync history
+argocd app history demo-artha-app
+
+# Rollback to previous version
+argocd app rollback demo-artha-app
+
+# Delete application (WARNING: removes all resources)
+argocd app delete demo-artha-app
+```
+
+---
+
 ## Troubleshooting
 
 ### Resources Already Exist Error
+
 This happens when resources are managed by old app. Solution:
+
 ```bash
 # Delete the conflicting resources
-kubectl delete pdb,hpa,deployment -l app in (admin,backend,frontend) -n default
+kubectl delete pdb backend-pdb frontend-pdb -n default
+kubectl delete deployment admin backend frontend -n default
+kubectl delete hpa admin-hpa backend-hpa frontend-hpa -n default
+
 # Then sync the new application
 ```
 
 ### Both Apps Show Same Resources
+
 Check the exclude values - each app should have different resources:
-- **demo-artha-app**: gateway.enabled=false
-- **demo-gateway-app**: applications.*.enabled=false
+- **demo-artha-app**: `gateway.enabled=false`
+- **demo-gateway-app**: `applications.*.enabled=false`
+
+### Cannot Access ArgoCD UI
+
+Make sure port-forward is running:
+
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+### Image Pull Errors
+
+Ensure image registry credentials are configured:
+
+```bash
+kubectl get secret -n default
+# You should see image pull secrets for ACR
+```
+
+### Sync Fails
+
+Check application details:
+
+```bash
+argocd app get demo-artha-app
+kubectl get events -n default
+```
 
 ### Image Updater Not Working
+
 Check:
+
 ```bash
 # View Image Updater logs
 kubectl logs -n argocd -l app.kubernetes.io/name=argocd-image-updater -f
 
 # Verify ACR credentials secret exists
 kubectl get secret acr-credentials -n argocd
+
+# Verify Git credentials secret exists
+kubectl get secret git-creds -n argocd
 ```
+
+---
+
+## Understanding OutOfSync Status
+
+### Why Does ArgoCD Show "OutOfSync"?
+
+When Gateway API resources (HTTPRoutes, Certificates, etc.) are deployed, **controllers automatically modify and normalize certain fields**. This causes ArgoCD to detect differences between Git and the cluster.
+
+### Common Controller Modifications
+
+#### 1. HTTPRoute - ParentRefs Normalization
+
+**What you write in Git:**
+```yaml
+spec:
+  parentRefs:
+    - name: nginx-gateway
+      namespace: nginx-gateway
+```
+
+**What the controller adds:**
+```yaml
+spec:
+  parentRefs:
+    - kind: Gateway  # ← Controller adds this
+      name: nginx-gateway
+      namespace: nginx-gateway
+```
+
+#### 2. HTTPRoute - BackendRefs Normalization
+
+**What you write:**
+```yaml
+backendRefs:
+  - name: frontend-service
+    port: 80
+```
+
+**What controller adds:**
+```yaml
+backendRefs:
+  - kind: Service  # ← Controller adds this
+    name: frontend-service
+    port: 80
+```
+
+#### 3. Certificate - Secret Template
+
+**What you write:**
+```yaml
+spec:
+  secretName: my-tls-cert
+```
+
+**What cert-manager adds:**
+```yaml
+spec:
+  secretName: my-tls-cert
+  secretTemplate:  # ← cert-manager adds this
+    labels:
+      controller: cert-manager
+```
+
+### The Solution: ignoreDifferences
+
+ArgoCD applications are configured with `ignoreDifferences` to ignore controller-managed fields:
+
+```yaml
+spec:
+  ignoreDifferences:
+    # Ignore HTTPRoute field normalization
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jqPathExpressions:
+        - '.spec.parentRefs[]?.kind'
+        - '.spec.rules[]?.backendRefs[]?.kind'
+    
+    # Ignore Certificate fields added by cert-manager
+    - group: cert-manager.io
+      kind: Certificate
+      jqPathExpressions:
+        - '.spec.secretTemplate'
+        - '.spec.privateKey.rotationPolicy'
+    
+    # Ignore Gateway status
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      jqPathExpressions:
+        - '.status'
+    
+    # Ignore Deployment replicas (modified by HPA)
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+```
+
+### What This Does
+
+✅ ArgoCD will **ignore** differences in these specific fields  
+✅ You'll only see "OutOfSync" for **real changes**  
+✅ Controllers can still manage these fields  
+✅ No manual syncing needed for controller modifications  
+
+### Expected OutOfSync Behavior
+
+**Image Updater Updates**: When Image Updater updates `application-values.yaml` with new image tags, ArgoCD will show "OutOfSync". This is **correct behavior** for manual sync workflow!
+
+---
+
+## Repository Structure
+
+```
+ingress-to-gateway-api/
+└── Helm_Argo/
+    ├── argocd/
+    │   ├── README.md                           # This file
+    │   ├── IMAGE-UPDATER-SETUP.md             # Image updater guide
+    │   ├── demo-artha-app/
+    │   │   └── argocd-application.yaml        # Application components
+    │   └── demo-gateway-app/
+    │       └── argocd-application.yaml        # Gateway resources
+    │
+    └── artha-helm-chart/
+        ├── Chart.yaml
+        ├── README.md                           # Helm chart documentation
+        ├── application-values.yaml             # App config (image tags)
+        ├── gateway-values.yaml                 # Gateway config
+        └── templates/
+            ├── applications/                   # App deployments
+            └── gateway/                        # Gateway resources
+```
+
+---
 
 ## Next Steps
 
-1. ✅ Clean up old resources
-2. ✅ Apply both ArgoCD applications
-3. ✅ Sync both apps in ArgoCD UI
-4. ✅ Verify deployments are running
-5. ✅ Test image updater (push new image to ACR)
-6. ✅ Test gateway updates (modify gateway-values.yaml)
+1. ✅ ArgoCD Applications configured and validated
+2. Install ArgoCD on your cluster (if not done)
+3. Apply both ArgoCD Application manifests
+4. Perform initial sync for both apps
+5. (Optional) Set up Image Updater for automatic tag detection
+6. Start deploying!
+
+For Image Updater setup, see [IMAGE-UPDATER-SETUP.md](IMAGE-UPDATER-SETUP.md).
+
+---
+
+**Your ArgoCD automation is ready to go!** 🚀
